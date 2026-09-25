@@ -1,0 +1,137 @@
+-- ==========================================
+-- 1. หมวดหมู่: การเคลื่อนที่ของผู้เล่น (PLAYER MOVEMENT)
+-- ==========================================
+
+-- วิ่งไว (WalkSpeed)
+local function setSpeed(speedValue)
+    local player = game.Players.LocalPlayer
+    if player.Character and player.Character:FindFirstChild("Humanoid") then
+        player.Character.Humanoid.WalkSpeed = speedValue
+    end
+end
+setSpeed(100) -- เปลี่ยนตัวเลขความเร็วตามต้องการ (ปกติคือ 16)
+
+-- กระโดดไม่จำกัด (Infinite Jump)
+local UserInputService = game:GetService("UserInputService")
+UserInputService.JumpRequest:Connect(function()
+    local player = game.Players.LocalPlayer
+    if player.Character and player.Character:FindFirstChildOfClass("Humanoid") then
+        player.Character:FindFirstChildOfClass("Humanoid"):ChangeState("Jumping")
+    end
+end)
+
+-- บินได้ (Fly - กด E เพื่อเปิด/ปิด)
+local flying = false
+local flySpeed = 50
+local player = game.Players.LocalPlayer
+local mouse = player:GetMouse()
+
+mouse.KeyDown:Connect(function(key)
+    if key:lower() == "e" then
+        flying = not flying
+        local character = player.Character
+        local root = character:FindFirstChild("HumanoidRootPart")
+        
+        if flying then
+            local bodyVelocity = Instance.new("BodyVelocity")
+            bodyVelocity.Name = "FlyVelocity"
+            bodyVelocity.Parent = root
+            bodyVelocity.MaxForce = Vector3.new(1e6, 1e6, 1e6)
+            
+            task.spawn(function()
+                while flying and character:FindFirstChild("HumanoidRootPart") do
+                    bodyVelocity.Velocity = workspace.CurrentCamera.CFrame.LookVector * flySpeed
+                    task.wait()
+                end
+                bodyVelocity:Destroy()
+            end)
+        end
+    end
+end)
+
+-- เดินทะลุสิ่งของ (Noclip)
+game:GetService("RunService").Stepped:Connect(function()
+    local character = game.Players.LocalPlayer.Character
+    if character then
+        for _, part in pairs(character:GetDescendants()) do
+            if part:IsA("BasePart") then
+                part.CanCollide = false
+            end
+        end
+    end
+end)
+
+
+-- ==========================================
+-- 2. หมวดหมู่: สายตาและการมองเห็น (VISUAL & ESP)
+-- ==========================================
+
+-- มองคนทะลุกำแพง (ESP / Highlight)
+local function applyESP(targetPlayer)
+    targetPlayer.CharacterAdded:Connect(function(character)
+        local highlight = Instance.new("Highlight")
+        highlight.Name = "ESPHighlight"
+        highlight.FillColor = Color3.fromRGB(255, 0, 0)
+        highlight.OutlineColor = Color3.fromRGB(255, 255, 255)
+        highlight.Parent = character
+    end)
+    if targetPlayer.Character then
+        local highlight = Instance.new("Highlight")
+        highlight.Name = "ESPHighlight"
+        highlight.FillColor = Color3.fromRGB(255, 0, 0)
+        highlight.OutlineColor = Color3.fromRGB(255, 255, 255)
+        highlight.Parent = targetPlayer.Character
+    end
+end
+
+for _, p in pairs(game.Players:GetPlayers()) do
+    if p ~= game.Players.LocalPlayer then
+        applyESP(p)
+    end
+end
+
+game.Players.PlayerAdded:Connect(function(p)
+    if p ~= game.Players.LocalPlayer then
+        applyESP(p)
+    end
+end)
+
+
+-- ==========================================
+-- 3. หมวดหมู่: ปรับแต่งยานพาหนะ (VEHICLE MODS)
+-- ==========================================
+
+-- เพิ่มความเร็วรถที่คุณกำลังนั่ง (Vehicle Speed Booster)
+local vehicleSpeedMultiplier = 2 -- ตัวคูณความเร็ว (2 เท่า)
+
+game:GetService("RunService").Heartbeat:Connect(function()
+    local character = game.Players.LocalPlayer.Character
+    if character and character:FindFirstChild("Humanoid") then
+        local seat = character.Humanoid.SeatPart
+        if seat and seat:IsA("VehicleSeat") then
+            seat.Velocity = seat.CFrame.LookVector * (seat.AssemblyLinearVelocity.Magnitude * vehicleSpeedMultiplier)
+        end
+    end
+end)
+
+
+-- ==========================================
+-- 4. หมวดหมู่: เพิ่มประสิทธิภาพเครื่อง (OPTIMIZATION / ANTI-LAG)
+-- ==========================================
+
+-- ลบกราฟิก / ลดความละเอียดเพื่อลดอาการกระตุก (Low Graphics)
+for _, v in pairs(workspace:GetDescendants()) do
+    if v:IsA("BasePart") then
+        v.Material = Enum.Material.SmoothPlastic
+        v.Reflectance = 0
+    elseif v:IsA("Decal") or v:IsA("Texture") then
+        v:Destroy()
+    elseif v:IsA("ParticleEmitter") or v:IsA("Trail") then
+        v.Enabled = false
+    end
+end
+
+-- ปิดหมอกและแสงสะท้อน
+local lighting = game:GetService("Lighting")
+lighting.GlobalShadows = false
+lighting.FogEnd = 9e9
